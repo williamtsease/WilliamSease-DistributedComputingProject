@@ -16,15 +16,15 @@ public class LinkSimulator : MonoBehaviour
 	public bool broken = false;		// if set to true, this link will drop all packets that go along it
 	public int latency = 0;		// how many milliseconds for packets to delay mid-transit
 	
-	public void sendMessageAB(string payload)
+	public void sendMessageAB(string label, string payload)
 	{	// Send message A->B
 		GameObject thisMessage = Instantiate(messagePrefab, new Vector3(nodeA.transform.position.x, nodeA.transform.position.y, 1), Quaternion.identity);
-		thisMessage.GetComponent<MessageSimulator>().Setup(nodeA, nodeB, payload, latency, broken);
+		thisMessage.GetComponent<MessageSimulator>().Setup(nodeA, nodeB, label, payload, latency, broken);
 		
 	}
-	public void sendMessageBA(string payload)
+	public void sendMessageBA(string label, string payload)
 	{	// Send message B->A
 		GameObject thisMessage = Instantiate(messagePrefab, new Vector3(nodeB.transform.position.x, nodeB.transform.position.y, 1), Quaternion.identity);
-		thisMessage.GetComponent<MessageSimulator>().Setup(nodeB, nodeA, payload, latency, broken);
+		thisMessage.GetComponent<MessageSimulator>().Setup(nodeB, nodeA, label, payload, latency, broken);
 	}
 }

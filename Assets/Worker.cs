@@ -16,7 +16,7 @@ public class Worker : MonoBehaviour
 
 	}
 	
-	public void receiveMessage(int fromID, string payload)
+	public void receiveMessage(int fromID, string messageType, string payload)
 	{	// This method is called remotely whenever a message arrives from another node
 		
 	}
@@ -31,13 +31,9 @@ public class Worker : MonoBehaviour
 //	SIMULATION INTERACTIONS
 //	
 	
-	void Start()
-	{
-		
-	}
-	
-	void initializeNode()
+	public void setup()
 	{
 		node = GetComponent<NodeSimulator>();
 	}
+	
 }

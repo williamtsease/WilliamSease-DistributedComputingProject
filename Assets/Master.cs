@@ -8,11 +8,25 @@ public class Master : MonoBehaviour
 	
 	NodeSimulator node;	// a reference we use to access our basic node functions (send a message, etc)
 	int masterCount = 5;	// masters are numbered 0 to count-1
+	int workerCount = 7;	// workers are numbered masterCount to masterCount+workerCount-1
 	
 	// RAFT fields (measured in (fraction) seconds, rather than ms)
-	float raftTimer;
-	float raftTimeout;
-	bool leader;
+	float raftTimer = 0.0f;
+	float raftTimeout = 1.0f;
+	bool leader = false;		// (am I leader?)
+	int raftTerm = 1;
+	int votedFor = -1;
+	bool candidate = false;		// (am I candidate? (overruled by above, in case both true))
+		int candidateVotes = 0;
+		
+	// For managing the Map Reduce (only modified by the master-leader, then updated on other masters)
+	int updateCounter = 0;
+	
+	bool[] mapTasksCompleted;
+	float[] mapTasksTimers;
+	
+	bool[] reduceTasksCompleted;
+	float[] reduceTasksTimers;
 	
 	// Update() runs every frame, so this is our while(true) central loop that runs the logic of the node
 	void Update()
@@ -24,35 +38,83 @@ public class Master : MonoBehaviour
 			raftTimer = 0f;
 			
 			if (leader)
-			{
+			{	// If leader, send heartbeat
 				sendHeartbeat();
 			}
 			else
-			{
-				// become candidate
+			{	// Otherwise, we've timed out! Become candidate and request votes as leader
+				candidate = true;
+				raftTerm += 1;
+				votedFor = node.nodeID; candidateVotes = 1;	// (vote for self)
+								
+				for (int i = 0; i < masterCount; i++)
+				{
+					node.sendMessage(i, "REQUESTVOTE", raftTerm + "");
+				}
 			}
-			
-			
-		//	if (node.nodeID == 0)
-		//		node.sendMessage(1, "THIS IS A TEST");
 		}
 	}
 	
-	public void receiveMessage(int fromID, string payload)
+	public void receiveMessage(int fromID, string messageType, string payload)
 	{	// This method is called remotely whenever a message arrives from another node
+		if (node.crashed)
+			return;
 	
 		// If the message is a heartbeat from a leader:
-		if (payload.StartsWith("HEARTBEAT"))
-		{	// If a follower receives a heartbeat message ...
+		if (messageType.StartsWith("HEARTBEAT"))
+		{	
 			if (leader)
-			{
-				// we were the leader? TODO
+			{	// If a leader receives a heartbeat message, ... do what?
+				// TODO
+				return;
 			}
 			else
-			{
+			{	// If a follower receives a heartbeat message, reset the timeout
 				raftTimer = 0;
 				return;
 			}
+		}
+		
+		// If the message is a request for votes:
+		if (messageType.StartsWith("REQUESTVOTE"))
+		{
+			int tempTerm = int.Parse(payload);
+			// (from an older term; decline)
+			if (tempTerm < raftTerm)
+				node.sendMessage(fromID, "VOTED", "FALSE");
+			Debug.Log("REQUEST 2!");
+			if (tempTerm > raftTerm)
+			{	// update the term, undo vote if it's newer term
+				raftTerm = tempTerm;
+				votedFor = -1;
+			}
+			Debug.Log("REQUEST 3!");
+			// (grant it unless we've already voted for someone else)
+			if (votedFor < 0 || votedFor == fromID)
+			{
+				votedFor = fromID;
+				becomeFollower();
+				node.sendMessage(fromID, "VOTED", "TRUE");
+			}
+			else
+			{
+				node.sendMessage(fromID, "VOTED", "FALSE");	
+			}
+		}
+		
+		// If it is a response to a request for votes:
+		if (messageType.StartsWith("VOTED"))
+		{
+			if (!candidate)
+				return;
+			
+			if (payload.Contains("TRUE"))
+			{
+				candidateVotes += 1;
+				if (candidateVotes > ((float)masterCount)/2.0f)
+					becomeLeader();
+			}
+			// (if it's false, do nothing)
 		}
 	}
 	
@@ -61,33 +123,50 @@ public class Master : MonoBehaviour
 		for (int i = 0; i < masterCount; i++)
 		{
 			if (i != node.nodeID)
-				node.sendMessage(i, "HEARTBEAT\n1");
+				node.sendMessage(i, "HEARTBEAT", raftTerm + "");
 		}
 	}
 	
+	void becomeLeader()
+	{	// (this helper function is used to concisely call the "I'm now leader" initialization)
+		leader = true;
+		candidate = false;
+		raftTimeout = 0.1f; // (leader timeout is 100ms)
+		raftTimer = raftTimeout; // (starting leader immediately sends a heartbeat)
+	}
 	
+	void becomeFollower()
+	{
+		candidate = false;
+		leader = false;
+		raftTimeout = (Random.Range(0.150f, 0.300f)); // (follower timeout is 150-250ms)
+		raftTimer = 0;
+	}
 
 
 //
 //	SIMULATION INTERACTIONS
+//	(mostly dealing with importing initial values/setting up, or with running the simulation (timers/graphics)
 //	
-	
-	void Start()
-	{
-		initializeNode();
-		Random rnd = new Random();
-		raftTimer = 0;
+	public void setup()
+	{	// (invoked remotely to get things started)
+		node = GetComponent<NodeSimulator>();
 		if (node.nodeID == 0)		// node 0 is the starting leader, the one from which the user invoked the map-reduce operation
 		{
-			leader = true;
-			raftTimeout = 0.1f*100f; // (leader timeout is 100ms (x100))
-			raftTimer = raftTimeout; // (starting leader immediately sends a heartbeat)
+			becomeLeader();
 		}
 		else
 		{
-			leader = false;
-			raftTimeout = (Random.Range(0.150f, 0.300f))*100f; // (follower timeout is 150-250ms (x100))
+			becomeFollower();
 		}
+		masterCount = node.masterCount;
+		workerCount = node.workerCount;
+		
+		updateCounter = 0;
+		mapTasksTimers = new float[node.mapCount];
+		mapTasksCompleted = new bool[node.mapCount];
+		reduceTasksTimers = new float[node.reduceCount];
+		reduceTasksCompleted = new bool[node.reduceCount];
 	}
 	
 	public Sprite crashedSprite;
@@ -99,6 +178,10 @@ public class Master : MonoBehaviour
 		if (node.crashed)
 		{
 			raftTimer = 0;
+			for (int i = 0; i < mapTasksTimers.Length; i++)
+				mapTasksTimers[i] = 0;
+			for (int i = 0; i < reduceTasksTimers.Length; i++)
+				reduceTasksTimers[i] = 0;
 		}
 		else if (node.paused)
 		{
@@ -106,13 +189,25 @@ public class Master : MonoBehaviour
 		}
 		else
 		{
-			raftTimer += Time.deltaTime;
+			float passedTime = Time.deltaTime / node.timeFactor;
+			raftTimer += passedTime;
+			for (int i = 0; i < mapTasksTimers.Length; i++)
+			{
+				if (mapTasksTimers[i] > 0)
+					mapTasksTimers[i] -= passedTime;
+			}
+			for (int i = 0; i < reduceTasksTimers.Length; i++)
+			{
+				if (reduceTasksTimers[i] > 0)
+					reduceTasksTimers[i] -= passedTime;
+			}
 		}
 		
 		// (we may as well cheat and put the sprite-update here)
 		if (node.crashed)
 		{
 			gameObject.GetComponent<SpriteRenderer>().sprite = crashedSprite;
+			becomeFollower();
 		}		
 		else if (leader)
 		{
@@ -122,10 +217,10 @@ public class Master : MonoBehaviour
 		{
 			gameObject.GetComponent<SpriteRenderer>().sprite = masterSprite;
 		}
-	}
-	
-	void initializeNode()
-	{
-		node = GetComponent<NodeSimulator>();
+		
+		if (leader || !candidate)
+		{
+			candidateVotes = 0;	// (this shouldn't ever come up; but just in case)
+		}
 	}
 }

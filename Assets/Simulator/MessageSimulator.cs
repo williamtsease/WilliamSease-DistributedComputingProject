@@ -17,6 +17,7 @@ public class MessageSimulator : MonoBehaviour
 	public bool dropped = false;		// has this message been dropped?
 	public float latency = 0.0f;		// has this message been delayed?
 	
+	string label = "";
 	string payload = "";		// The message being delivered - just a single string (the receiver will have to decipher it)
 	
     void Update()
@@ -36,7 +37,7 @@ public class MessageSimulator : MonoBehaviour
 		else if (timeTravelled > TRAVELTIME)
 		{	// Message has arrived! Pass payload to this node, and remove this message from the network
 			
-			toNode.GetComponent<NodeSimulator>().receiveMessage(fromID, payload);
+			toNode.GetComponent<NodeSimulator>().receiveMessage(fromID, label, payload);
 			
 			Destroy(gameObject);
 		}
@@ -50,19 +51,40 @@ public class MessageSimulator : MonoBehaviour
 		}
     }
 	
-	public void Setup(GameObject newFromNode, GameObject newToNode, string newPayload, float newLatency, bool newDropped)
+	public Sprite basicSprite;
+	public Sprite hbSprite;
+	public Sprite yesSprite;
+	public Sprite noSprite;
+	public Sprite querySprite;
+	
+	public void Setup(GameObject newFromNode, GameObject newToNode, string newType, string newPayload, float newLatency, bool newDropped)
 	{
 		fromID = newFromNode.GetComponent<NodeSimulator>().nodeID;
 		fromLocation = newFromNode.transform.position;
 		toNode = newToNode;
 		toID = newToNode.GetComponent<NodeSimulator>().nodeID;
 		toLocation = newToNode.transform.position;
+		label = newType;
 		payload = newPayload;
 		latency = newLatency;
 		dropped = newDropped;
 		
 		transform.position = fromLocation;
 		
+		TRAVELTIME *= Random.Range(0.85f, 1.15f);	// we want nondeterminism; so even with latency controls, randomize the message travel tim a bit
+
 		paused = false;	// now that we're done setting up, we can tell the message to get going
+
+		if (label.StartsWith("HEARTBEAT"))
+			gameObject.GetComponent<SpriteRenderer>().sprite = hbSprite;
+		else if (label.StartsWith("REQUESTVOTE"))
+			gameObject.GetComponent<SpriteRenderer>().sprite = querySprite;
+		else if (payload.Contains("TRUE"))
+			gameObject.GetComponent<SpriteRenderer>().sprite = yesSprite;
+		else if (payload.Contains("FALSE"))
+			gameObject.GetComponent<SpriteRenderer>().sprite = noSprite;
+		else
+			gameObject.GetComponent<SpriteRenderer>().sprite = basicSprite;
+		
 	}
 }

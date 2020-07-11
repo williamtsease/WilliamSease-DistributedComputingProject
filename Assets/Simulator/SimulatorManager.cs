@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.IO;
 
 public class SimulatorManager : MonoBehaviour
 {
@@ -16,6 +17,9 @@ public class SimulatorManager : MonoBehaviour
 	public GameObject linkPrefab;
 	public GameObject[,] links;
 	// (note link[a,b] and link[b,a] are both references to the same link object, which links a and b (if a=b, the reference is null - no self-link object exists)
+	
+	int mapTaskCount = 5;
+	int reduceTaskCount = 10;
 	
 	void Start()
     {
@@ -34,7 +38,7 @@ public class SimulatorManager : MonoBehaviour
 			masters[i] = Instantiate(masterPrefab, newLocation, Quaternion.identity);
 			
 			// (set fields)
-			masters[i].GetComponent<NodeSimulator>().nodeID = totalNodeCounter;
+			masters[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount);
 			totalNodeCounter ++;
 		}
 		
@@ -47,7 +51,7 @@ public class SimulatorManager : MonoBehaviour
 			workers[i] = Instantiate(workerPrefab, newLocation, Quaternion.identity);
 			
 			// (set fields)
-			workers[i].GetComponent<NodeSimulator>().nodeID = totalNodeCounter;
+			workers[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount);
 			totalNodeCounter ++;
 		}
 		
@@ -112,6 +116,26 @@ public class SimulatorManager : MonoBehaviour
 				workers[i].GetComponent<NodeSimulator>().links[j] = links[i,j];
 			}
 		}
+		
+		mapTaskCount = SetupManager.mapCount;
+        reduceTaskCount = SetupManager.reduceCount;
+        
+		// Get the starting target files
+		var tempFiles = Directory.EnumerateFiles(Directory.GetCurrentDirectory(), "pg-*.txt");
+		mapTaskCount = 0;
+		foreach (var file in tempFiles)
+			mapTaskCount += 1;
+		string[] files = new string[mapTaskCount];
+		int tempCounter = 0;
+		foreach (var file in tempFiles)
+		{
+			files[tempCounter] = file;
+			masters[0].GetComponent<NodeSimulator>().copyFile(files[tempCounter]);		// (copy them manually into server0, the initial master-leader)
+			tempCounter += 1;
+		}
+		// *sigh* okay so now they're in an array isntead of an "iterator"
+		// TODO pass the array into server0, which then 
+		
 		
     }
 	

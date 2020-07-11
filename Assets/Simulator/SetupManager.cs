@@ -12,10 +12,18 @@ public class SetupManager : MonoBehaviour
     public static int numberOfMasters;
 	public static int numberOfWorkers;
 	
+	public Slider reduceCountSlider;
+	
+	public static int mapCount;	// = number of files in the directory, so set automatically
+	public static int reduceCount;
+	
 	void Start()
 	{
 		numberOfMasters = 5;
 		numberOfWorkers = 8;
+		
+		mapCount = 5;	// TODO
+		reduceCount = 10;
 	}
 	
 	public void setMasterCount()
@@ -27,6 +35,11 @@ public class SetupManager : MonoBehaviour
     {
 		numberOfWorkers = (int)workerCountSlider.value;
     }
+	
+	public void setReduceCount()
+	{
+		reduceCount = (int)reduceCountSlider.value;
+	}
 	
 	public void beginSimulation()
 	{
