@@ -22,11 +22,9 @@ public class Master : MonoBehaviour
 	// For managing the Map Reduce (only modified by the master-leader, then updated on other masters)
 	int updateCounter = 0;
 	
-	bool[] mapTasksCompleted;
-	float[] mapTasksTimers;
+	TaskData[] mapTasks;
 	
-	bool[] reduceTasksCompleted;
-	float[] reduceTasksTimers;
+	TaskData[] reduceTasks;
 	
 	// Update() runs every frame, so this is our while(true) central loop that runs the logic of the node
 	void Update()
@@ -163,10 +161,13 @@ public class Master : MonoBehaviour
 		workerCount = node.workerCount;
 		
 		updateCounter = 0;
-		mapTasksTimers = new float[node.mapCount];
-		mapTasksCompleted = new bool[node.mapCount];
-		reduceTasksTimers = new float[node.reduceCount];
-		reduceTasksCompleted = new bool[node.reduceCount];
+		mapTasks = new TaskData[node.mapCount];
+		for (int i = 0; i < mapTasks.Length; i++)
+			mapTasks[i] = new TaskData();
+		reduceTasks = new TaskData[node.reduceCount];
+		for (int i = 0; i < reduceTasks.Length; i++)
+			reduceTasks[i] = new TaskData();
+		
 	}
 	
 	public Sprite crashedSprite;
@@ -178,10 +179,10 @@ public class Master : MonoBehaviour
 		if (node.crashed)
 		{
 			raftTimer = 0;
-			for (int i = 0; i < mapTasksTimers.Length; i++)
-				mapTasksTimers[i] = 0;
-			for (int i = 0; i < reduceTasksTimers.Length; i++)
-				reduceTasksTimers[i] = 0;
+			for (int i = 0; i < mapTasks.Length; i++)
+				mapTasks[i].timer = 0;
+			for (int i = 0; i < reduceTasks.Length; i++)
+				reduceTasks[i].timer = 0;
 		}
 		else if (node.paused)
 		{
@@ -191,15 +192,15 @@ public class Master : MonoBehaviour
 		{
 			float passedTime = Time.deltaTime / node.timeFactor;
 			raftTimer += passedTime;
-			for (int i = 0; i < mapTasksTimers.Length; i++)
+			for (int i = 0; i < mapTasks.Length; i++)
 			{
-				if (mapTasksTimers[i] > 0)
-					mapTasksTimers[i] -= passedTime;
+				if (mapTasks[i].timer > 0)
+					mapTasks[i].timer -= passedTime;
 			}
-			for (int i = 0; i < reduceTasksTimers.Length; i++)
+			for (int i = 0; i < reduceTasks.Length; i++)
 			{
-				if (reduceTasksTimers[i] > 0)
-					reduceTasksTimers[i] -= passedTime;
+				if (reduceTasks[i].timer > 0)
+					reduceTasks[i].timer -= passedTime;
 			}
 		}
 		
@@ -222,5 +223,19 @@ public class Master : MonoBehaviour
 		{
 			candidateVotes = 0;	// (this shouldn't ever come up; but just in case)
 		}
+	}
+}
+
+class TaskData
+{
+	public bool complete;
+	public string filename;
+	public float timer;
+	
+	public TaskData()
+	{
+		complete = false;
+		filename = "";
+		timer = -1.0f;
 	}
 }

@@ -38,7 +38,7 @@ public class SimulatorManager : MonoBehaviour
 			masters[i] = Instantiate(masterPrefab, newLocation, Quaternion.identity);
 			
 			// (set fields)
-			masters[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount);
+			masters[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
 			totalNodeCounter ++;
 		}
 		
@@ -51,7 +51,7 @@ public class SimulatorManager : MonoBehaviour
 			workers[i] = Instantiate(workerPrefab, newLocation, Quaternion.identity);
 			
 			// (set fields)
-			workers[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount);
+			workers[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
 			totalNodeCounter ++;
 		}
 		
@@ -65,10 +65,7 @@ public class SimulatorManager : MonoBehaviour
 				links[i,j] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
 				links[j,i] = links[i,j];
 				// (set up the link with references to the two nodes)
-				links[i,j].GetComponent<LinkSimulator>().nodeA = masters[i];
-				links[i,j].GetComponent<LinkSimulator>().nodeAindex = masters[i].GetComponent<NodeSimulator>().nodeID;
-				links[i,j].GetComponent<LinkSimulator>().nodeB = masters[j];
-				links[i,j].GetComponent<LinkSimulator>().nodeBindex = masters[j].GetComponent<NodeSimulator>().nodeID;
+				links[i,j].GetComponent<LinkSimulator>().setupLink(masters[i], masters[j], gameObject);
 			}
 		}
 		// 2. Link master to worker
@@ -79,10 +76,7 @@ public class SimulatorManager : MonoBehaviour
 				links[i,j+masterCount] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
 				links[j+masterCount,i] = links[i,j];
 				// (set up the link with references to the two nodes)
-				links[i,j+masterCount].GetComponent<LinkSimulator>().nodeA = masters[i];
-				links[i,j+masterCount].GetComponent<LinkSimulator>().nodeAindex = masters[i].GetComponent<NodeSimulator>().nodeID;
-				links[i,j+masterCount].GetComponent<LinkSimulator>().nodeB = workers[j];
-				links[i,j+masterCount].GetComponent<LinkSimulator>().nodeBindex = workers[j].GetComponent<NodeSimulator>().nodeID;
+				links[i,j+masterCount].GetComponent<LinkSimulator>().setupLink(masters[i], workers[j], gameObject);
 			}
 		}
 		// 3. Link worker to worker
@@ -93,10 +87,12 @@ public class SimulatorManager : MonoBehaviour
 				links[i+masterCount,j+masterCount] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
 				links[j+masterCount,i+masterCount] = links[i,j];
 				// (set up the link with references to the two nodes)
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeA = workers[i];
+				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().setupLink(workers[i], workers[j], gameObject);
+	/*			links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeA = workers[i];
 				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeAindex = workers[i].GetComponent<NodeSimulator>().nodeID;
 				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeB = workers[j];
 				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeBindex = workers[j].GetComponent<NodeSimulator>().nodeID;
+				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().manager = gameObject;*/
 			}
 		}
 		// All nodes need a list of links for easy reference
@@ -178,6 +174,82 @@ public class SimulatorManager : MonoBehaviour
 			}
 		}
 	}
+	
+	//
+	// FIELDS/FUNCTIONS THAT CONTROL THE SELECTING OF NODES / MESSAGES FOR CRASHING AND OTHER MANIPULATION
+	//
+	public GameObject selectLabel;
+	public GameObject crashButton;
+	public GameObject selectorVisual;
+	public Sprite messageSelectSprite;
+	public Sprite nodeSelectSprite;
+	
+	public GameObject linkLabelPrefab;
+	public GameObject breakButtonPrefab;
+	
+	GameObject selected = null;
+	
+	public void selectNode(GameObject thisNode)
+	{
+		if (thisNode == selected)
+		{
+			deselect();
+			return;
+		}
+		deselect();
+		selected = thisNode;
+		crashButton.GetComponent<BtnCrash>().setup(thisNode);
+		crashButton.transform.position = new Vector3(-8.5f, 3.75f, 0);
+		selectorVisual.GetComponent<SelectorStiky>().target = thisNode;
+		selectorVisual.GetComponent<SpriteRenderer>().sprite = nodeSelectSprite;
+		selectLabel.GetComponent<TextMesh>().text = "Node " + thisNode.GetComponent<NodeSimulator>().nodeID;
+		int tempOffset = 0;
+		for (int i = 0; i < selected.GetComponent<NodeSimulator>().links.Length; i++)
+		{
+			if (i == selected.GetComponent<NodeSimulator>().nodeID)
+			{
+				tempOffset = 1;
+				continue;
+			}
+			GameObject tempLabel = Instantiate(linkLabelPrefab, new Vector3(-10.5f, 3.0f - (0.25f * (i-tempOffset)), 1), Quaternion.identity);
+			tempLabel.GetComponent<TextMesh>().text = "Link: "+selected.GetComponent<NodeSimulator>().nodeID+" to "+i;
+			GameObject tempButton = Instantiate(breakButtonPrefab, new Vector3(-8.5f, 3.0f - (0.25f * (i-tempOffset)), 1), Quaternion.identity);
+			tempButton.GetComponent<BtnBreakLink>().setup(selected.GetComponent<NodeSimulator>().links[i]);
+		}
+	}
+	
+	public void selectMessage(GameObject thisMessage)
+	{
+		if (thisMessage == selected)
+		{
+			deselect();
+			return;
+		}
+		deselect();
+		selected = thisMessage;
+		crashButton.GetComponent<BtnCrash>().setup(thisMessage);
+		crashButton.transform.position = new Vector3(-8.5f, 3.75f, 0f);
+		selectorVisual.GetComponent<SelectorStiky>().target = thisMessage;
+		selectorVisual.GetComponent<SpriteRenderer>().sprite = messageSelectSprite;
+		selectLabel.GetComponent<TextMesh>().text = "Message " + thisMessage.GetComponent<MessageSimulator>().fromID + " to " + thisMessage.GetComponent<MessageSimulator>().toID;
+	}
 
-    
+    void deselect()
+	{
+		selected = null;
+		selectLabel.GetComponent<TextMesh>().text = "";
+		crashButton.transform.position = new Vector3(9999, 9999, 0);
+		selectorVisual.GetComponent<SelectorStiky>().target = null;
+		selectorVisual.transform.position = new Vector3(999f, 999f, 999f);
+		
+		GameObject[] enemies = GameObject.FindGameObjectsWithTag("selectedLink");
+		foreach(GameObject thingy in enemies)
+			GameObject.Destroy(thingy);
+	}
+	
+	void Update()
+	{
+		if (selected == null)
+			deselect();
+	}
 }

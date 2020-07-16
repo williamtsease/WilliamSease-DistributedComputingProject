@@ -4,10 +4,12 @@ using UnityEngine;
 
 public class MessageSimulator : MonoBehaviour
 {
-	int fromID;
+	public GameObject gameManager;
+	
+	public int fromID;
 	Vector3 fromLocation;
 	GameObject toNode;
-	int toID;
+	public int toID;
 	Vector3 toLocation;
 	
 	float TRAVELTIME = 1.5f;	// (how long does it take messages to arrive in our simulation, in seconds)
@@ -57,7 +59,7 @@ public class MessageSimulator : MonoBehaviour
 	public Sprite noSprite;
 	public Sprite querySprite;
 	
-	public void Setup(GameObject newFromNode, GameObject newToNode, string newType, string newPayload, float newLatency, bool newDropped)
+	public void Setup(GameObject newFromNode, GameObject newToNode, string newType, string newPayload, float newLatency, bool newDropped, GameObject managerInput)
 	{
 		fromID = newFromNode.GetComponent<NodeSimulator>().nodeID;
 		fromLocation = newFromNode.transform.position;
@@ -86,5 +88,12 @@ public class MessageSimulator : MonoBehaviour
 		else
 			gameObject.GetComponent<SpriteRenderer>().sprite = basicSprite;
 		
+		gameManager = managerInput;
+		
+	}
+	
+	void OnMouseDown()
+	{
+		gameManager.GetComponent<SimulatorManager>().selectMessage(gameObject);
 	}
 }

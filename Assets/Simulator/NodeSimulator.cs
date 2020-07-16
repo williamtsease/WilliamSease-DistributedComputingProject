@@ -5,6 +5,8 @@ using System.IO;
 
 public class NodeSimulator : MonoBehaviour
 {
+	public GameObject gameManager;
+	
 	// All nodes have a unique ID number
     public int nodeID;
 	public GameObject idLabelField;
@@ -59,7 +61,7 @@ public class NodeSimulator : MonoBehaviour
 		receiveMessage(fromNumber, label, payload);
 	}
 	
-	public void setup(int newID, int newMC, int newWC, int newMpC, int newRdC)
+	public void setup(int newID, int newMC, int newWC, int newMpC, int newRdC, GameObject managerInput)
 	{
 		nodeID = newID;
 		idLabelField.GetComponent<TextMesh>().text = "" + nodeID;
@@ -81,6 +83,8 @@ public class NodeSimulator : MonoBehaviour
 		if (Directory.Exists(directory))
 			Directory.Delete(directory, true);
 		Directory.CreateDirectory(directory);
+		
+		gameManager = managerInput;
 	}
 	
 	// A helper method for getting a specified file and copying it into this server's directory
@@ -91,4 +95,8 @@ public class NodeSimulator : MonoBehaviour
 		File.Copy(path, directory + "\\" + fileName);
 	}
 	
+	void OnMouseDown()
+	{
+		gameManager.GetComponent<SimulatorManager>().selectNode(gameObject);
+	}
 }

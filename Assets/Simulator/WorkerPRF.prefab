@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 4114463514316145392}
   - component: {fileID: 247714137140714080}
   - component: {fileID: 3148161552317246647}
+  - component: {fileID: 3135801413149771555}
   m_Layer: 0
   m_Name: WorkerPRF
   m_TagString: Untagged
@@ -189,3 +190,35 @@ MonoBehaviour:
   links: []
   crashed: 0
   paused: 0
+  timeFactor: 100
+  directory: 
+  masterCount: 0
+  workerCount: 0
+  mapCount: 0
+  reduceCount: 0
+--- !u!61 &3135801413149771555
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5008661931673984123}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1.56, y: 2.35}
+    newSize: {x: 1.56, y: 2.35}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  serializedVersion: 2
+  m_Size: {x: 1.56, y: 2.35}
+  m_EdgeRadius: 0
