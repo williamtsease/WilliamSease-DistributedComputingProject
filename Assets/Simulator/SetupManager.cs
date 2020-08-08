@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -19,11 +20,21 @@ public class SetupManager : MonoBehaviour
 	
 	void Start()
 	{
-		numberOfMasters = 5;
-		numberOfWorkers = 8;
+		numberOfMasters = 3;
+		numberOfWorkers = 5;
 		
 		mapCount = 5;	// TODO
 		reduceCount = 10;
+		
+		// Delete all directories left over from the last run
+		for (int i = 0; i < 999; i++)
+		{
+			string directory = Directory.GetCurrentDirectory() + "\\Server" + i;
+			if (Directory.Exists(directory))
+				Directory.Delete(directory, true);
+			else
+				break;
+		}
 	}
 	
 	public void setMasterCount()

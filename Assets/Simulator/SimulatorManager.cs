@@ -1,18 +1,17 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using System.IO;
 
 public class SimulatorManager : MonoBehaviour
 {
 	int masterCount;
 	public GameObject masterPrefab;
-	public GameObject[] masters;
-	
 	int workerCount;
 	public GameObject workerPrefab;
-	public GameObject[] workers;
-	
+	public GameObject[] nodes;
+		
 	// each link connects two nodes, and we want to be able to refer to it from either end
 	public GameObject linkPrefab;
 	public GameObject[,] links;
@@ -21,101 +20,10 @@ public class SimulatorManager : MonoBehaviour
 	int mapTaskCount = 5;
 	int reduceTaskCount = 10;
 	
+	public float timeFactor = 100f;		// (how many times slower than real time does the simlulation run? (default x100) )
+	
 	void Start()
     {
-		int totalNodeCounter = 0;	// to give each node a unique ID number
-		
-		// Make the Masters!
-		masterCount = SetupManager.numberOfMasters;
-        masters = new GameObject[masterCount];
-		for (int i = 0; i < masterCount; i++)
-		{
-			float degrees = i*(2*Mathf.PI)/masterCount;	// space the servers around a circle (2pi/masterCount radians apart)
-			float radius = 1f + (0.1f)*masterCount;		// raidus from the centre of the circle
-			if (masterCount < 2)
-				radius = 0;		// (if there's just one, put it in the middle)
-			Vector3 newLocation = new Vector3(radius*Mathf.Cos(degrees), radius*Mathf.Sin(degrees), 0);	// (convert from radial coordinates to x/y)
-			masters[i] = Instantiate(masterPrefab, newLocation, Quaternion.identity);
-			
-			// (set fields)
-			masters[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
-			totalNodeCounter ++;
-		}
-		
-		// Make the Workers!
-		workerCount = SetupManager.numberOfWorkers;
-		workers = new GameObject[workerCount];
-		for (int i = 0; i < workerCount; i++)
-		{
-			Vector3 newLocation = new Vector3(5f+(1.5f*(i/5)), 3f-(1.5f*(i%5)), 0);		// logic for placing the workers in vertical rows of 5
-			workers[i] = Instantiate(workerPrefab, newLocation, Quaternion.identity);
-			
-			// (set fields)
-			workers[i].GetComponent<NodeSimulator>().setup(totalNodeCounter, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
-			totalNodeCounter ++;
-		}
-		
-		// Make links between all pairs of nodes!
-		// 1. Link master to master
-		links = new GameObject[masterCount+workerCount,masterCount+workerCount];
-		for (int i = 0; i < masterCount; i++)
-		{
-			for (int j = i+1; j < masterCount; j++)
-			{
-				links[i,j] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
-				links[j,i] = links[i,j];
-				// (set up the link with references to the two nodes)
-				links[i,j].GetComponent<LinkSimulator>().setupLink(masters[i], masters[j], gameObject);
-			}
-		}
-		// 2. Link master to worker
-		for (int i = 0; i < masterCount; i++)
-		{
-			for (int j = 0; j < workerCount; j++)
-			{
-				links[i,j+masterCount] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
-				links[j+masterCount,i] = links[i,j];
-				// (set up the link with references to the two nodes)
-				links[i,j+masterCount].GetComponent<LinkSimulator>().setupLink(masters[i], workers[j], gameObject);
-			}
-		}
-		// 3. Link worker to worker
-		for (int i = 0; i < workerCount; i++)
-		{
-			for (int j = i+1; j < workerCount; j++)
-			{
-				links[i+masterCount,j+masterCount] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
-				links[j+masterCount,i+masterCount] = links[i,j];
-				// (set up the link with references to the two nodes)
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().setupLink(workers[i], workers[j], gameObject);
-	/*			links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeA = workers[i];
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeAindex = workers[i].GetComponent<NodeSimulator>().nodeID;
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeB = workers[j];
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().nodeBindex = workers[j].GetComponent<NodeSimulator>().nodeID;
-				links[i+masterCount,j+masterCount].GetComponent<LinkSimulator>().manager = gameObject;*/
-			}
-		}
-		// All nodes need a list of links for easy reference
-		for (int i = 0; i < masterCount; i++)
-		{
-			masters[i].GetComponent<NodeSimulator>().links = new GameObject[masterCount+workerCount];
-			for (int j = 0; j < masterCount+workerCount; j++)
-			{
-				masters[i].GetComponent<NodeSimulator>().links[j] = links[i,j];
-			}
-		}
-		for (int i = 0; i < workerCount; i++)
-		{
-			workers[i].GetComponent<NodeSimulator>().links = new GameObject[masterCount+workerCount];
-			for (int j = 0; j < masterCount+workerCount; j++)
-			{
-				workers[i].GetComponent<NodeSimulator>().links[j] = links[i,j];
-			}
-		}
-		
-		mapTaskCount = SetupManager.mapCount;
-        reduceTaskCount = SetupManager.reduceCount;
-        
 		// Get the starting target files
 		var tempFiles = Directory.EnumerateFiles(Directory.GetCurrentDirectory(), "pg-*.txt");
 		mapTaskCount = 0;
@@ -126,13 +34,70 @@ public class SimulatorManager : MonoBehaviour
 		foreach (var file in tempFiles)
 		{
 			files[tempCounter] = file;
-			masters[0].GetComponent<NodeSimulator>().copyFile(files[tempCounter]);		// (copy them manually into server0, the initial master-leader)
 			tempCounter += 1;
 		}
 		// *sigh* okay so now they're in an array isntead of an "iterator"
-		// TODO pass the array into server0, which then 
 		
+		masterCount = SetupManager.numberOfMasters;
+        workerCount = SetupManager.numberOfWorkers;
+		reduceTaskCount = SetupManager.reduceCount;
 		
+		nodes = new GameObject[masterCount+workerCount];
+		// Make the Masters!
+		for (int i = 0; i < masterCount; i++)
+		{
+			float degrees = i*(2*Mathf.PI)/masterCount;	// space the servers around a circle (2pi/masterCount radians apart)
+			float radius = 1f + (0.1f)*masterCount;		// raidus from the centre of the circle
+			if (masterCount < 2)
+				radius = 0;		// (if there's just one, put it in the middle)
+			Vector3 newLocation = new Vector3(radius*Mathf.Cos(degrees), radius*Mathf.Sin(degrees), 0);	// (convert from radial coordinates to x/y)
+			nodes[i] = Instantiate(masterPrefab, newLocation, Quaternion.identity);
+			
+			// (set fields)
+			nodes[i].GetComponent<NodeSimulator>().setup(i, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
+		}
+		
+		// Make the Workers!
+		for (int i = masterCount; i < masterCount + workerCount; i++)
+		{
+			Vector3 newLocation = new Vector3(5f+(1.5f*((i-masterCount)/5)), 3f-(1.5f*((i-masterCount)%5)), 0);		// logic for placing the workers in vertical rows of 5
+			nodes[i] = Instantiate(workerPrefab, newLocation, Quaternion.identity);
+			
+			// (set fields)
+			nodes[i].GetComponent<NodeSimulator>().setup(i, masterCount, workerCount, mapTaskCount, reduceTaskCount, gameObject);
+		}
+		
+		// Make links between all pairs of nodes!
+		// (note - we are linking self-to-self because we don't want a self-message to be an undefined crash)
+		links = new GameObject[masterCount+workerCount,masterCount+workerCount];
+		for (int i = 0; i < masterCount+workerCount; i++)
+		{
+			for (int j = i; j < masterCount+workerCount; j++)
+			{
+				links[i,j] = Instantiate(linkPrefab, new Vector3(0, 0, 0), Quaternion.identity);
+				links[j,i] = links[i,j];
+				// (set up the link with references to the two nodes)
+				links[i,j].GetComponent<LinkSimulator>().setupLink(nodes[i], nodes[j], gameObject);
+			}
+		}
+		// All nodes need a list of links for easy reference
+		for (int i = 0; i < masterCount+workerCount; i++)
+		{
+			nodes[i].GetComponent<NodeSimulator>().links = new GameObject[masterCount+workerCount];
+			for (int j = 0; j < masterCount+workerCount; j++)
+			{
+				nodes[i].GetComponent<NodeSimulator>().links[j] = links[i,j];
+			}
+		}
+		
+		mapTaskCount = SetupManager.mapCount;
+        reduceTaskCount = SetupManager.reduceCount;
+        
+		for (int i = 0; i < files.Length; i++)
+		{
+			nodes[0].GetComponent<NodeSimulator>().copyFile(files[i]);		// (copy the files manually into server0, the initial master-leader)
+		}
+		nodes[0].GetComponent<Master>().setFiles();	// load the files properly
     }
 	
 	public bool paused = false;
@@ -141,13 +106,9 @@ public class SimulatorManager : MonoBehaviour
 		if (paused)
 		{
 			paused = false;
-			for (int i = 0; i < masterCount; i++)
+			for (int i = 0; i < nodes.Length; i++)
 			{
-				masters[i].GetComponent<NodeSimulator>().paused = false;
-			}
-			for (int i = 0; i < workerCount; i++)
-			{
-				workers[i].GetComponent<NodeSimulator>().paused = false;
+				nodes[i].GetComponent<NodeSimulator>().paused = false;
 			}
 			// I got lazy and didn't list messages, so we'll have to find them all ourselves
 			GameObject[] messages = GameObject.FindGameObjectsWithTag("message");
@@ -159,13 +120,9 @@ public class SimulatorManager : MonoBehaviour
 		else
 		{
 			paused = true;
-			for (int i = 0; i < masterCount; i++)
+			for (int i = 0; i < nodes.Length; i++)
 			{
-				masters[i].GetComponent<NodeSimulator>().paused = true;
-			}
-			for (int i = 0; i < workerCount; i++)
-			{
-				workers[i].GetComponent<NodeSimulator>().paused = true;
+				nodes[i].GetComponent<NodeSimulator>().paused = true;
 			}
 			GameObject[] messages = GameObject.FindGameObjectsWithTag("message");
 			for (int i = 0; i < messages.Length; i++)
@@ -247,9 +204,38 @@ public class SimulatorManager : MonoBehaviour
 			GameObject.Destroy(thingy);
 	}
 	
+	public GameObject timeText;
+	float msPassed = 0;
 	void Update()
 	{
 		if (selected == null)
 			deselect();
+		
+		if (msPassed < 10)
+			timeText.GetComponent<TextMesh>().text = (int)(msPassed*1000f) + "ms";
+		else
+			timeText.GetComponent<TextMesh>().text = ((float)(int)(msPassed*10f))/10f + "s";
+		
+		if (!paused)
+			msPassed += Time.deltaTime / timeFactor;
+	}
+	
+	public Slider speedSetter;
+	public Text speedWarning;
+	public void setSpeed()
+	{	// set the speed factor of the simulation
+		float newSpeed = speedSetter.value;
+		timeFactor = newSpeed;
+		for (int i = 0; i < nodes.Length; i++)
+			nodes[i].GetComponent<NodeSimulator>().setSpeed(newSpeed);
+		// I got lazy and didn't list messages, so we'll have to find them all ourselves
+		GameObject[] messages = GameObject.FindGameObjectsWithTag("message");
+		for (int i = 0; i < messages.Length; i++)
+			messages[i].GetComponent<MessageSimulator>().timeFactor = newSpeed;
+		
+		if (timeFactor < 8)
+			speedWarning.text = "(Messages are invisible at this speed)";
+		else
+			speedWarning.text = "";
 	}
 }

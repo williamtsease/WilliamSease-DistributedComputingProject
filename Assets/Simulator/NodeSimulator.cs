@@ -28,6 +28,10 @@ public class NodeSimulator : MonoBehaviour
 	
 	public void sendMessage(int targetIndex, string tempLabel, string tempMessage)
 	{	// send a message to another node
+		if (crashed)
+		{
+			return;
+		}
 		if (nodeID == targetIndex)
 		{
 			return;
@@ -42,8 +46,52 @@ public class NodeSimulator : MonoBehaviour
 		}
 	}
 	
+	public void sendMessage(int targetIndex, string tempLabel, string tempMessage, string file)
+	{	// send a message to another node
+		if (crashed)
+		{
+			return;
+		}
+		if (nodeID == targetIndex)
+		{
+			return;
+		}
+		else if (nodeID < targetIndex)
+		{
+			links[targetIndex].GetComponent<LinkSimulator>().sendMessageAB(tempLabel, tempMessage, new string[] {file});
+		}
+		else
+		{
+			links[targetIndex].GetComponent<LinkSimulator>().sendMessageBA(tempLabel, tempMessage, new string[] {file});
+		}
+	}
+	
+	public void sendMessage(int targetIndex, string tempLabel, string tempMessage, string[] files)
+	{	// send a message to another node
+		if (crashed)
+		{
+			return;
+		}
+		if (nodeID == targetIndex)
+		{
+			return;
+		}
+		else if (nodeID < targetIndex)
+		{
+			links[targetIndex].GetComponent<LinkSimulator>().sendMessageAB(tempLabel, tempMessage, files);
+		}
+		else
+		{
+			links[targetIndex].GetComponent<LinkSimulator>().sendMessageBA(tempLabel, tempMessage, files);
+		}
+	}
+	
 	public void receiveMessage(int fromNumber, string label, string payload)
 	{	// We don't know whether this node is a master or a worker, so try to pass the message along both ways
+		if (crashed)
+		{
+			return;
+		}
 		try
 		{
 			GetComponent<Master>().receiveMessage(fromNumber, label, payload);
@@ -56,6 +104,10 @@ public class NodeSimulator : MonoBehaviour
 	
 	public void receiveMessage(int fromNumber, string label, string payload, string[] files)
 	{	// If the message has a set of files attached, copy them into our directory before interpreting the message
+		if (crashed)
+		{
+			return;
+		}
 		for (int i = 0; i < files.Length; i++)
 			copyFile(files[i]);
 		receiveMessage(fromNumber, label, payload);
@@ -91,12 +143,26 @@ public class NodeSimulator : MonoBehaviour
 	public void copyFile(string path)
 	{
 		string fileName = path.Split('\\')[path.Split('\\').Length-1];
-		Debug.Log(fileName);
+		try {
+			File.Delete(directory + "\\" + fileName);
+		} catch { }
 		File.Copy(path, directory + "\\" + fileName);
 	}
 	
 	void OnMouseDown()
 	{
 		gameManager.GetComponent<SimulatorManager>().selectNode(gameObject);
+	}
+	
+	public void setSpeed(float newSpeed)
+	{
+		timeFactor = newSpeed;
+		for (int i = 0; i < links.Length; i++)
+		{
+			if (i == nodeID)
+				continue;
+			
+			links[i].GetComponent<LinkSimulator>().timeFactor = newSpeed;
+		}
 	}
 }
