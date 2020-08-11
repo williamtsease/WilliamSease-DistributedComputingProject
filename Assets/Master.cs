@@ -164,6 +164,9 @@ public class Master : MonoBehaviour
 		// MESSAGE IS A REPORT OF/REQUEST FOR A MAP OR REDUCE TASK
 		if (messageType.StartsWith("TASKFINISHED"))
 		{
+			if (!leader)
+				return; //(only the leader responds to workers - if we are not the leader, we will keep the duplicated files but take no further action)
+			
 			string tempType = payload.Split('\n')[0];
 			int tempJobNumber = int.Parse(payload.Split('\n')[1]);
 			
@@ -180,9 +183,6 @@ public class Master : MonoBehaviour
 				}
 			}
 			updateUC();
-			
-			if (!leader)
-				return; //(only the leader responds to workers)
 			
 			if (!mappingDone())
 			{	// assuming we're not done with mapping tasks, hand out the next one
@@ -328,7 +328,7 @@ public class Master : MonoBehaviour
 		leader = true;
 		candidate = false;
 		candidateVotes = 0;
-		raftTimeout = 0.1f; // (leader timeout is 100ms)
+		raftTimeout = 0.050f; // (leader heartbeat timeout is 50ms)
 		raftTimer = raftTimeout; // (starting leader immediately sends a heartbeat)
 	}
 	
@@ -337,7 +337,7 @@ public class Master : MonoBehaviour
 		candidate = false;
 		leader = false;
 		candidateVotes = 0;
-		raftTimeout = (Random.Range(0.150f, 0.300f)); // (follower timeout is 150-250ms)
+		raftTimeout = (Random.Range(0.125f, 0.175f)); // (follower timeout is 125-175ms, long enough for two heartbeats)
 		raftTimer = 0;
 	}
 
