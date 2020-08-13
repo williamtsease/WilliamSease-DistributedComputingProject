@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 2319134326455369074}
   - component: {fileID: 2319134326455369075}
   - component: {fileID: 2319134326455369072}
+  - component: {fileID: 7076061549951022969}
   m_Layer: 0
   m_Name: LinkLabelPRF
   m_TagString: selectedLink
@@ -91,3 +92,17 @@ TextMesh:
   m_Color:
     serializedVersion: 2
     rgba: 4294967295
+--- !u!114 &7076061549951022969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2319134326455369073}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36c87301c5e1598408643ef8cf3e45bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  xRight: 0.025
+  yDown: 0.2

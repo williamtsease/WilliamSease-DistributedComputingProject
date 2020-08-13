@@ -25,7 +25,7 @@ public class Worker : MonoBehaviour
 		if (taskTimer > simulatedTaskTime && taskCompleted)
 		{	// task is completed, request a new one
 			taskTimer = 0f;
-			simulatedTaskTime = 0.050f;	// wait 50 ms before we repeat our request
+			simulatedTaskTime = 0.100f;	// wait 50 ms before we repeat our request
 			
 			for (int i = 0; i < node.masterCount; i++)
 				node.sendMessage(i, "TASKFINISHED", taskType+"\n"+taskNumber, taskFiles);
@@ -41,7 +41,7 @@ public class Worker : MonoBehaviour
 		if (messageType.StartsWith("GIVETASK"))
 		{	
 			taskTimer = 0;
-			simulatedTaskTime = UnityEngine.Random.Range(0.150f, 0.300f);	// a given task will take 150-300 ms to complete
+			simulatedTaskTime = UnityEngine.Random.Range(0.150f, 0.300f);	// an arbitrary task will take 150-300 (simulated) ms to complete
 			taskType = payload.Split('\n')[0];
 			
 			if (taskType == "MAP")
@@ -52,7 +52,7 @@ public class Worker : MonoBehaviour
 			
 				// Begin the work!
 				taskCompleted = false;
-				StartCoroutine(doMapping(taskFileName));
+				doMapping(taskFileName);
 			}
 			if (taskType == "REDUCE")
 			{
@@ -60,7 +60,7 @@ public class Worker : MonoBehaviour
 				
 				// Begin the work!
 				taskCompleted = false;
-				StartCoroutine(doReducing());
+				doReducing();
 			}
 		}
 		
@@ -68,7 +68,7 @@ public class Worker : MonoBehaviour
 		if (messageType.StartsWith("WAIT"))
 		{	// (wait 100 ms before asking again)
 			taskTimer = 0;
-			simulatedTaskTime = 0.250f;
+			simulatedTaskTime = 0.100f;
 			
 			taskType = "";
 			taskNumber = -1;
@@ -77,14 +77,15 @@ public class Worker : MonoBehaviour
 		// MESSAGE WAS AN EXIT COMMAND, SHUT DOWN THE WORKER
 		if (messageType.StartsWith("EXIT"))
 		{
+			var tempFiles = Directory.EnumerateFiles(node.directory, "*.txt");
+			foreach (var fileName in tempFiles)
+				File.Delete(fileName);
 			node.crashed = true;
 		}
 	}
 	
-	IEnumerator doMapping(string taskFileName)
+	void doMapping(string taskFileName)
 	{
-		yield return null;
-
 		// (create the outfiles)
 		StreamWriter[] writeFile = new StreamWriter[node.reduceCount];
 		taskFiles = new string[node.reduceCount];
@@ -101,6 +102,7 @@ public class Worker : MonoBehaviour
 			rawText = rawText.Replace("  ", " ");
 		// (split it on the spaces)
 		string[] words = rawText.Split(' ');
+		simulatedTaskTime = ((words.Length/500.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// with more information, we can give a better simulated task time of 500 words per millisecond (with slight random variation)
 		// (each word is sorted into the right file)
 		for (int i = 0; i < words.Length; i++)
 		{
@@ -113,10 +115,8 @@ public class Worker : MonoBehaviour
 		
 	}
 	
-	IEnumerator doReducing()
+	void doReducing()
 	{
-		yield return null;
-
 		string rawText = "";
 		for (int i = 0; i < node.mapCount; i++)
 		{
@@ -124,6 +124,7 @@ public class Worker : MonoBehaviour
 		}
 		// (split the text into words)
 		string[] words = rawText.Split('\n');
+		simulatedTaskTime = ((words.Length/300.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// with more information, we can give a better simulated task time of 300 words per millisecond (slower than mapping) (with slight random variation)
 		// (sort them)
 		Array.Sort(words);
 		

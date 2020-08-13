@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class Master : MonoBehaviour
 {
+	bool DEBUGPRINTING = false;
 	// NOTE: All times are 100x normal to make the simulator's actions visible, and interactions possible
 	
 	NodeSimulator node;	// a reference we use to access our basic node functions (send a message, etc)
@@ -33,6 +34,7 @@ public class Master : MonoBehaviour
 		if (raftTimer > raftTimeout)
 		{
 			raftTimer = 0f;
+			// (we don't need to change the timeout unless we're changing state)
 			
 			if (leader)
 			{	// If leader, send heartbeat
@@ -43,6 +45,7 @@ public class Master : MonoBehaviour
 				candidate = true;
 				raftTerm += 1;
 				candidateVotes = 1; votedFor = node.nodeID;	// (vote for self)
+				raftTimeout = (Random.Range(0.125f, 0.175f)); // (election timeout is 125-175ms, the same as follower timeout)
 				
 				for (int i = 0; i < masterCount; i++)
 				{
@@ -52,10 +55,10 @@ public class Master : MonoBehaviour
 		}
 	}
 	
-	public void receiveMessage(int fromID, string messageType, string payload)
+	public int receiveMessage(int fromID, string messageType, string payload)
 	{	// This method is called remotely whenever a message arrives from another node
 		if (node.crashed)
-			return;
+			return 1;
 	
 		// MESSAGE IS A LEADER HEARTBEAT
 		if (messageType.StartsWith("HEARTBEAT"))
@@ -64,7 +67,7 @@ public class Master : MonoBehaviour
 			if (theirTerm > raftTerm)
 				raftTerm = theirTerm;
 			int theirUpdate = int.Parse(payload.Split('\n')[1]);
-			Debug.Log("Their update is " + theirUpdate+ ", mine is " + updateCounter);
+			if (DEBUGPRINTING) { Debug.Log("Their update is " + theirUpdate+ ", mine is " + updateCounter); }
 			if (leader)
 			{	// If a leader receives a heartbeat message ...
 				if (theirUpdate < updateCounter)
@@ -75,14 +78,14 @@ public class Master : MonoBehaviour
 				{	// they are NOT behind us; give way
 					becomeFollower();
 				}
-				return;
+				return 1;
 			}
 			else
 			{	// If a follower receives a heartbeat message, reset the timeout and read their update
 				if (theirUpdate < updateCounter)
 				{	// (unless they are behind us; then reject their heartbeat and become candidate)
 					raftTimer = raftTimeout + 1;
-					return;
+					return 1;
 				}
 				
 				raftTimer = 0;
@@ -90,7 +93,7 @@ public class Master : MonoBehaviour
 				if (updateCounter < 0 && theirUpdate >= 0)
 				{
 					node.sendMessage(fromID, "REQUESTFILES", "-1");
-					return;
+					return 1;
 				}
 				
 				// otherwise, update everything
@@ -150,7 +153,7 @@ public class Master : MonoBehaviour
 		if (messageType.StartsWith("VOTED"))
 		{
 			if (!candidate)
-				return;
+				return 1;
 			
 			if (payload.Contains("TRUE"))
 			{
@@ -164,8 +167,8 @@ public class Master : MonoBehaviour
 		// MESSAGE IS A REPORT OF/REQUEST FOR A MAP OR REDUCE TASK
 		if (messageType.StartsWith("TASKFINISHED"))
 		{
-			if (!leader)
-				return; //(only the leader responds to workers - if we are not the leader, we will keep the duplicated files but take no further action)
+			if (!leader || updateCounter < 0) //(only the leader responds to workers - if we are not the leader, we will keep the duplicated files but take no further action)
+				return 1; 		// (also, if we've somehow managed to elect a master-leader without the starting files, it can't respond)
 			
 			string tempType = payload.Split('\n')[0];
 			int tempJobNumber = int.Parse(payload.Split('\n')[1]);
@@ -192,7 +195,7 @@ public class Master : MonoBehaviour
 				else
 				{
 					node.sendMessage(fromID, "GIVETASK", "MAP" + "\n" + thisTask + "\n" + mapTasks[thisTask].filename, mapTasks[thisTask].filename);
-					mapTasks[thisTask].timer = 1.000f;	// set timeout to 1.0s
+					mapTasks[thisTask].timer = 0.500f;	// set timeout to 0.5s
 				}
 			}
 			else if (!reducingDone())
@@ -206,13 +209,15 @@ public class Master : MonoBehaviour
 					for (int i = 0; i < node.mapCount; i++)
 						tempReduceFiles[i] = node.directory + "\\" + "intermediate"+thisTask+"-"+i+".txt";
 					node.sendMessage(fromID, "GIVETASK", "REDUCE" + "\n" + thisTask, tempReduceFiles);
-					reduceTasks[thisTask].timer = 1.000f;	// set timeout to 1.0s
+					reduceTasks[thisTask].timer = 0.500f;	// set timeout to 0.5s
 				}
 			}
 			else
 			{	// Both map AND reduce tasks are done, tell the worker to exit
+				Debug.Log("JOB COMPLETE: " + (int)(GameObject.Find("SceneManager").GetComponent<SimulatorManager>().msPassed*1000) + "ms");
 				node.sendMessage(fromID, "EXIT", "");
 			}
+			return 1;
 //			printTaskProgress();
 		}
 		
@@ -225,7 +230,7 @@ public class Master : MonoBehaviour
 			if (whichFiles[0] == "-1")
 			{
 				sendBaseFiles(fromID);
-				return;
+				return 1;
 			}
 			
 			// Otherwise, it's sets of intermediate files that are needed
@@ -238,6 +243,8 @@ public class Master : MonoBehaviour
 			setFiles();
 			updateCounter = 0;
 		}
+		
+		return 1;
 	}
 	
 	void sendHeartbeat()
@@ -286,11 +293,11 @@ public class Master : MonoBehaviour
 		if (!leader)
 			return;
 		
-		Debug.Log("Sending "+taskNumbers.Length+" files!");
+		if(DEBUGPRINTING) { Debug.Log("Sending "+taskNumbers.Length+" files!"); }
 		int tempSize = 0;
 		for (int i = 0; i < taskNumbers.Length; i++)
 		{
-			Debug.Log(taskNumbers[i]);
+			if(DEBUGPRINTING) { Debug.Log(taskNumbers[i]); }
 			if (taskNumbers[i].StartsWith("m"))
 			{
 				tempSize += reduceTasks.Length;
@@ -455,7 +462,7 @@ public class Master : MonoBehaviour
 			else
 				tempOutput += reduceTasks[i].timer + "; ";
 		}
-		Debug.Log(tempOutput);
+		if(DEBUGPRINTING) { Debug.Log(tempOutput); }
 	}
 
 

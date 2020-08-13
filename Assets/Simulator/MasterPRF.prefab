@@ -388,6 +388,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06d4ab0b49d01fa43b61acfbbe0aa2f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sceneManager: {fileID: 0}
   crashedSprite: {fileID: 21300000, guid: 5a9e45af6135d7d46a6b58b6f94ea55e, type: 3}
   leaderSprite: {fileID: 21300000, guid: bef4d40588c77af43b2db02fec01cb2d, type: 3}
   masterSprite: {fileID: 21300000, guid: e9daa2db48026e845af044458bbdab05, type: 3}

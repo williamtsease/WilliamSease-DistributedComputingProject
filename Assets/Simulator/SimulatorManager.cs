@@ -157,6 +157,9 @@ public class SimulatorManager : MonoBehaviour
 		selected = thisNode;
 		crashButton.GetComponent<BtnCrash>().setup(thisNode);
 		crashButton.transform.position = new Vector3(-8.5f, 3.75f, 0);
+		// OR: place it in screenspace -- sigh
+		crashButton.GetComponent<PlaceObjectInScreenSpace>().yDown = 0.125f;
+		crashButton.GetComponent<PlaceObjectInScreenSpace>().place();
 		selectorVisual.GetComponent<SelectorStiky>().target = thisNode;
 		selectorVisual.GetComponent<SpriteRenderer>().sprite = nodeSelectSprite;
 		selectLabel.GetComponent<TextMesh>().text = "Node " + thisNode.GetComponent<NodeSimulator>().nodeID;
@@ -172,6 +175,12 @@ public class SimulatorManager : MonoBehaviour
 			tempLabel.GetComponent<TextMesh>().text = "Link: "+selected.GetComponent<NodeSimulator>().nodeID+" to "+i;
 			GameObject tempButton = Instantiate(breakButtonPrefab, new Vector3(-8.5f, 3.0f - (0.25f * (i-tempOffset)), 1), Quaternion.identity);
 			tempButton.GetComponent<BtnBreakLink>().setup(selected.GetComponent<NodeSimulator>().links[i]);
+			
+			// OR: place it in screenspace -- sigh
+			tempLabel.GetComponent<PlaceObjectInScreenSpace>().yDown = 0.2f + (i-tempOffset)*0.025f;
+			tempLabel.GetComponent<PlaceObjectInScreenSpace>().place();
+			tempButton.GetComponent<PlaceObjectInScreenSpace>().yDown = 0.2f + (i-tempOffset)*0.025f;
+			tempButton.GetComponent<PlaceObjectInScreenSpace>().place();
 		}
 	}
 	
@@ -185,7 +194,10 @@ public class SimulatorManager : MonoBehaviour
 		deselect();
 		selected = thisMessage;
 		crashButton.GetComponent<BtnCrash>().setup(thisMessage);
-		crashButton.transform.position = new Vector3(-8.5f, 3.75f, 0f);
+		crashButton.transform.position = new Vector3(-8.25f, 3.75f, 0f);
+		// OR: place it in screenspace -- sigh
+		crashButton.GetComponent<PlaceObjectInScreenSpace>().yDown = 0.125f;
+		crashButton.GetComponent<PlaceObjectInScreenSpace>().place();
 		selectorVisual.GetComponent<SelectorStiky>().target = thisMessage;
 		selectorVisual.GetComponent<SpriteRenderer>().sprite = messageSelectSprite;
 		selectLabel.GetComponent<TextMesh>().text = "Message " + thisMessage.GetComponent<MessageSimulator>().fromID + " to " + thisMessage.GetComponent<MessageSimulator>().toID;
@@ -205,7 +217,7 @@ public class SimulatorManager : MonoBehaviour
 	}
 	
 	public GameObject timeText;
-	float msPassed = 0;
+	public float msPassed = 0;
 	void Update()
 	{
 		if (selected == null)

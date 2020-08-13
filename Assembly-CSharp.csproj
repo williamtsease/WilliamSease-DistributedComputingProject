@@ -60,6 +60,7 @@
      <Compile Include="Assets\Simulator\LinkSimulator.cs" />
      <Compile Include="Assets\Simulator\MessageSimulator.cs" />
      <Compile Include="Assets\Simulator\NodeSimulator.cs" />
+     <Compile Include="Assets\Simulator\PlaceObjectInScreenSpace.cs" />
      <Compile Include="Assets\Simulator\SelectorStiky.cs" />
      <Compile Include="Assets\Simulator\SetupManager.cs" />
      <Compile Include="Assets\Simulator\SimulatorManager.cs" />

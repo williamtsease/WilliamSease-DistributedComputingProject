@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+using System.Threading.Tasks;
 
 public class NodeSimulator : MonoBehaviour
 {
@@ -92,14 +93,7 @@ public class NodeSimulator : MonoBehaviour
 		{
 			return;
 		}
-		try
-		{
-			GetComponent<Master>().receiveMessage(fromNumber, label, payload);
-		} catch { }
-		try
-		{
-			GetComponent<Worker>().receiveMessage(fromNumber, label, payload);
-		} catch { }
+		doReceive(fromNumber, label, payload);
 	}
 	
 	public void receiveMessage(int fromNumber, string label, string payload, string[] files)
@@ -111,6 +105,19 @@ public class NodeSimulator : MonoBehaviour
 		for (int i = 0; i < files.Length; i++)
 			copyFile(files[i]);
 		receiveMessage(fromNumber, label, payload);
+	}
+	
+	async Task<int> doReceive(int fromNumber, string label, string payload)
+	{
+		try
+		{
+			GetComponent<Master>().receiveMessage(fromNumber, label, payload);
+		} catch { }
+		try
+		{
+			GetComponent<Worker>().receiveMessage(fromNumber, label, payload);
+		} catch { }
+		return 1;
 	}
 	
 	public void setup(int newID, int newMC, int newWC, int newMpC, int newRdC, GameObject managerInput)
