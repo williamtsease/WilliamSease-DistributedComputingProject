@@ -27,6 +27,20 @@ public class NodeSimulator : MonoBehaviour
 	public int mapCount;
 	public int reduceCount;
 	
+	void Update()
+	{	// This ought to be an asynchronous call to avoid "hitching", but I don't know what I'm doing so it isn't
+		try
+		{
+			GetComponent<Master>().advanceTimers();
+			GetComponent<Master>().update();
+		} catch { }
+		try
+		{
+			GetComponent<Worker>().advanceTimers();
+			GetComponent<Worker>().update();
+		} catch { }
+	}
+	
 	public void sendMessage(int targetIndex, string tempLabel, string tempMessage)
 	{	// send a message to another node
 		if (crashed)
@@ -48,7 +62,7 @@ public class NodeSimulator : MonoBehaviour
 	}
 	
 	public void sendMessage(int targetIndex, string tempLabel, string tempMessage, string file)
-	{	// send a message to another node
+	{	// send a message to another node with one attached file (overload method)
 		if (crashed)
 		{
 			return;
@@ -68,11 +82,9 @@ public class NodeSimulator : MonoBehaviour
 	}
 	
 	public void sendMessage(int targetIndex, string tempLabel, string tempMessage, string[] files)
-	{	// send a message to another node
+	{	// send a message to another node with multiple attached files (overload method) (to be fair, it might be an array of one file - that's fine too)
 		if (crashed)
-		{
 			return;
-		}
 		if (nodeID == targetIndex)
 		{
 			return;
@@ -90,25 +102,21 @@ public class NodeSimulator : MonoBehaviour
 	public void receiveMessage(int fromNumber, string label, string payload)
 	{	// We don't know whether this node is a master or a worker, so try to pass the message along both ways
 		if (crashed)
-		{
 			return;
-		}
 		doReceive(fromNumber, label, payload);
 	}
 	
 	public void receiveMessage(int fromNumber, string label, string payload, string[] files)
-	{	// If the message has a set of files attached, copy them into our directory before interpreting the message
+	{	// If the message has a set of files attached, copy them into our directory before interpreting the message (overload method)
 		if (crashed)
-		{
 			return;
-		}
 		for (int i = 0; i < files.Length; i++)
 			copyFile(files[i]);
 		receiveMessage(fromNumber, label, payload);
 	}
 	
 	async Task<int> doReceive(int fromNumber, string label, string payload)
-	{
+	{	// This ought to be an asynchronous call to avoid "hitching", but I don't know what I'm doing so it doesn't
 		try
 		{
 			GetComponent<Master>().receiveMessage(fromNumber, label, payload);
@@ -121,7 +129,7 @@ public class NodeSimulator : MonoBehaviour
 	}
 	
 	public void setup(int newID, int newMC, int newWC, int newMpC, int newRdC, GameObject managerInput)
-	{
+	{	// Setup this Node
 		nodeID = newID;
 		idLabelField.GetComponent<TextMesh>().text = "" + nodeID;
 		masterCount = newMC;
@@ -146,9 +154,8 @@ public class NodeSimulator : MonoBehaviour
 		gameManager = managerInput;
 	}
 	
-	// A helper method for getting a specified file and copying it into this server's directory
 	public void copyFile(string path)
-	{
+	{	// A helper method for getting a specified file and copying it into this server's directory (used by receiveMessage() when it has files)
 		string fileName = path.Split('\\')[path.Split('\\').Length-1];
 		try {
 			File.Delete(directory + "\\" + fileName);
@@ -157,18 +164,15 @@ public class NodeSimulator : MonoBehaviour
 	}
 	
 	void OnMouseDown()
-	{
+	{	// Clicking on this node selects it
 		gameManager.GetComponent<SimulatorManager>().selectNode(gameObject);
 	}
 	
 	public void setSpeed(float newSpeed)
-	{
+	{	// This method is called externally by Simulator Manager whenver the speed of the simulation changes
 		timeFactor = newSpeed;
-		for (int i = 0; i < links.Length; i++)
-		{
-			if (i == nodeID)
-				continue;
-			
+		for (int i = nodeID+1; i < links.Length; i++)
+		{	// Set the speed on all links that haven't already been set by a previous node (remember, links are two-ended and each connect to two nodes)
 			links[i].GetComponent<LinkSimulator>().timeFactor = newSpeed;
 		}
 	}

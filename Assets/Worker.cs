@@ -6,38 +6,36 @@ using UnityEngine;
 
 public class Worker : MonoBehaviour
 {
-	// NOTE: All times are 100x normal to make the simulator's actions visible, and interactions possible
+	// NOTE: All times are 100x normal (changing with the simulator's speed) to make the simulator's actions visible, and interactions possible
 	
-	NodeSimulator node;	// a reference we use to access our basic node functions (send a message, etc)
+	NodeSimulator node;			// a reference we use to access our basic node functions (send a message, etc)
+	// (for simulating how long the task takes, since we need it to run at a visible speed instead of instantly)
 	float taskTimer;
-	float simulatedTaskTime;	// (for simulating how long the task takes, since we need it to run at a visible speed instead of instantly)
-	bool taskCompleted = true;
+	float simulatedTaskTime;	
+	bool taskCompleted = true;	// (depending on how we break things down, the task might actually take real time to complete, in which case we don't want to risk the above simulated timer ticking over too early)
 
 	string taskType = "";
 	int taskNumber = -1;
 	string[] taskFiles;			// (to return the results, duplicate them back to the master)
 
 	// Update() runs every frame, so this is our while(true) central loop that runs the logic of the node
-	void Update()
+	public void update()
 	{
-		advanceTimers();
-
 		if (taskTimer > simulatedTaskTime && taskCompleted)
 		{	// task is completed, request a new one
 			taskTimer = 0f;
-			simulatedTaskTime = 0.100f;	// wait 50 ms before we repeat our request
+			simulatedTaskTime = 0.100f;	// wait 100 ms before we repeat our request
 			
 			for (int i = 0; i < node.masterCount; i++)
 				node.sendMessage(i, "TASKFINISHED", taskType+"\n"+taskNumber, taskFiles);
+			// (The first time this sent, the "task" we're reporting will be -1 (no task) and we're just requesting an intial "new" task)
 		}
 	}
 	
 	public void receiveMessage(int fromID, string messageType, string payload)
 	{	// This method is called remotely whenever a message arrives from another node
-		if (node.crashed)
-			return;
-	
-		// MESSAGE IS A NEW TASK
+
+		// OPTION 1: MESSAGE IS A NEW TASK
 		if (messageType.StartsWith("GIVETASK"))
 		{	
 			taskTimer = 0;
@@ -57,6 +55,7 @@ public class Worker : MonoBehaviour
 			if (taskType == "REDUCE")
 			{
 				taskNumber = int.Parse(payload.Split('\n')[1]);
+				// Reduce tasks use intermediate files as input, as we can just construct those file names procedurally as we need them
 				
 				// Begin the work!
 				taskCompleted = false;
@@ -64,7 +63,7 @@ public class Worker : MonoBehaviour
 			}
 		}
 		
-		// MESSAGE WAS A WAIT COMMAND
+		// OPTION 2: MESSAGE WAS A WAIT COMMAND
 		if (messageType.StartsWith("WAIT"))
 		{	// (wait 100 ms before asking again)
 			taskTimer = 0;
@@ -74,18 +73,20 @@ public class Worker : MonoBehaviour
 			taskNumber = -1;
 		}
 		
-		// MESSAGE WAS AN EXIT COMMAND, SHUT DOWN THE WORKER
+		// OPTION 3: MESSAGE WAS AN EXIT COMMAND, PURGE FILES AND SHUT DOWN THE WORKER
 		if (messageType.StartsWith("EXIT"))
 		{
 			var tempFiles = Directory.EnumerateFiles(node.directory, "*.txt");
 			foreach (var fileName in tempFiles)
 				File.Delete(fileName);
+			taskNumber = -1;
 			node.crashed = true;
 		}
 	}
 	
 	void doMapping(string taskFileName)
-	{
+	{	// A helper method for actually doing file mapping
+		
 		// (create the outfiles)
 		StreamWriter[] writeFile = new StreamWriter[node.reduceCount];
 		taskFiles = new string[node.reduceCount];
@@ -95,6 +96,8 @@ public class Worker : MonoBehaviour
 			writeFile[i] = new StreamWriter(File.Create(outFileName));
 			taskFiles[i] = outFileName;
 		}
+		
+		// Read the file in!
 		string rawText = File.ReadAllText(taskFileName).ToLower();
 		// (reduce it to raw text)
 		rawText = rawText.Replace("\n", " ").Replace(",", " ").Replace(".", " ").Replace("?", " ").Replace("!", " ").Replace(":", " ").Replace(";", " ").Replace("\"", " ").Replace("[", " ").Replace("]", " ").Replace("*", " ").Replace("-", " ").Replace("_", " ").Replace("(", " ").Replace(")", " ");
@@ -102,7 +105,7 @@ public class Worker : MonoBehaviour
 			rawText = rawText.Replace("  ", " ");
 		// (split it on the spaces)
 		string[] words = rawText.Split(' ');
-		simulatedTaskTime = ((words.Length/500.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// with more information, we can give a better simulated task time of 500 words per millisecond (with slight random variation)
+		simulatedTaskTime = ((words.Length/500.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// now that we have more information, we can give a better simulated task time of 500 words per millisecond (with slight random variation)
 		// (each word is sorted into the right file)
 		for (int i = 0; i < words.Length; i++)
 		{
@@ -112,11 +115,11 @@ public class Worker : MonoBehaviour
 			writeFile[hashValue].WriteLine(words[i]);
 		}
 		taskCompleted = true;
-		
 	}
 	
 	void doReducing()
-	{
+	{	// A helper method for actually doing file reducing
+	
 		string rawText = "";
 		for (int i = 0; i < node.mapCount; i++)
 		{
@@ -124,9 +127,9 @@ public class Worker : MonoBehaviour
 		}
 		// (split the text into words)
 		string[] words = rawText.Split('\n');
-		simulatedTaskTime = ((words.Length/300.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// with more information, we can give a better simulated task time of 300 words per millisecond (slower than mapping) (with slight random variation)
+		simulatedTaskTime = ((words.Length/300.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// now that we have more information, we can give a better simulated task time of 300 words per millisecond (slower than mapping)
 		// (sort them)
-		Array.Sort(words);
+		Array.Sort(words);	// <<-- THIS IS SLOW!! This is where the "hitch" is! FIX THIS!!!
 		
 		// (count the words)
 		int[] counts = new int[words.Length];
@@ -144,7 +147,8 @@ public class Worker : MonoBehaviour
 			}
 		}
 		
-		taskFiles = new string[1];
+		// Output to the file
+		taskFiles = new string[1];	// (only one output file, but our format is an array, so a length 1 array it is)
 		taskFiles[0] = node.directory + "\\" + "output"+taskNumber+".txt";
 		StreamWriter writeFile = new StreamWriter(File.Create(taskFiles[0]));
 		
@@ -172,13 +176,15 @@ public class Worker : MonoBehaviour
 
 //
 //	SIMULATION INTERACTIONS
+//	(mostly dealing with importing initial values/setting up, or with running the simulation (timers/graphics)
+//	I would have preferred to put these outside in Node Simulator, but unfortunately this code is worker-specific
 //	
-	
+
 	public void setup()
 	{
 		node = GetComponent<NodeSimulator>();
 		taskTimer = 0;
-		simulatedTaskTime = UnityEngine.Random.Range(0.001f, 0.030f);
+		simulatedTaskTime = UnityEngine.Random.Range(0.001f, 0.030f);	// initial task request after 1ms to 30ms
 	}
 	
 	public Sprite crashedSprite;
@@ -187,7 +193,9 @@ public class Worker : MonoBehaviour
 	public GameObject docImg;
 	public GameObject docMultText;
 	
-	void advanceTimers()
+	public GameObject progressText;
+	
+	public void advanceTimers()
 	{	// Each frame, increment timers according to framerate
 		if (node.crashed)
 		{
@@ -211,6 +219,17 @@ public class Worker : MonoBehaviour
 		else
 		{
 			gameObject.GetComponent<SpriteRenderer>().sprite = masterSprite;
+		}
+		
+		if (taskNumber < 0)
+		{
+			progressText.GetComponent<TextMesh>().text = "  ";
+		}
+		else
+		{
+			float percentComplete = taskTimer/simulatedTaskTime;
+			int percentage = (int)(percentComplete * 100f);
+			//progressText.GetComponent<TextMesh>().text = percentage + "%";	// At the moment, since I'm using the exact same code to count task simulated task completion and request repeat, this times both .. which is NOT what I want
 		}
 		
 		var tempFiles = Directory.EnumerateFiles(node.directory, "*.txt");
