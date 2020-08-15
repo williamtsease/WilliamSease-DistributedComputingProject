@@ -30,6 +30,8 @@ public class Worker : MonoBehaviour
 				node.sendMessage(i, "TASKFINISHED", taskType+"\n"+taskNumber, taskFiles);
 			// (The first time this sent, the "task" we're reporting will be -1 (no task) and we're just requesting an intial "new" task)
 		}
+		
+//		doReducing2();	// (since my stopgap fix for hitching involves breaking the sort into multiple parts, we need to call it every time)
 	}
 	
 	public void receiveMessage(int fromID, string messageType, string payload)
@@ -166,7 +168,96 @@ public class Worker : MonoBehaviour
 	
 	
 	
+/*	THIS WAS AN ATTEMPT TO BREAK DOWN THE SORTING JOB INTO A BUNCH OF LITTLE PIECES SO THE WHOLE SIMULATOR DOESN"T HAVE TO WAIT FOR ITS COMPLETION
+	(NEGATING THE "HITCHING" ISSUE)
+	UNFORTUNATELY EVEN WITH ONLY 5 WORDS PER FRAME IT WAS TOO CHOPPY AND ONLY 5 WORDS/FRAME WOULD TAKE WAY TOO LONG
+
+	string[] words;
+	int sorted = 0;
 	
+	void doReducing()
+	{	// ATTEMPT 2: A helper method for actually doing file reducing
+	
+		string rawText = "";
+		for (int i = 0; i < node.mapCount; i++)
+		{
+			rawText += File.ReadAllText(node.directory + "\\intermediate" + taskNumber + "-" + i + ".txt");
+		}
+		// (split the text into words)
+		words = rawText.Split('\n');
+		simulatedTaskTime = ((words.Length/300.0f)*UnityEngine.Random.Range(0.9f, 1.1f))/1000f;	// now that we have more information, we can give a better simulated task time of 300 words per millisecond (slower than mapping)
+		
+		// (set up the sort)
+		sorted = 0;
+		
+	}
+	
+	void doReducing2()
+	{
+		if (taskCompleted || !taskType.Equals("REDUCE"))
+			return;
+		
+		if (sorted >= words.Length)
+		{
+			// We're done with the sorting! Move on to the last part
+			
+			// (count the words)
+			int[] counts = new int[words.Length];
+			for (int i = 0; i < counts.Length; i++)
+				counts[i] = 1;
+			for (int i = 0; i < words.Length; i++)
+			{
+				if (counts[i] == 0)
+					continue;
+			
+				for (int j = i+1; j < words.Length && words[j] == words[i]; j++)
+				{
+					counts[i] += 1;
+					counts[j] = 0;
+				}
+			}
+		
+			// Output to the file
+			taskFiles = new string[1];	// (only one output file, but our format is an array, so a length 1 array it is)
+			taskFiles[0] = node.directory + "\\" + "output"+taskNumber+".txt";
+			StreamWriter writeFile = new StreamWriter(File.Create(taskFiles[0]));
+		
+			for (int i = 0; i < words.Length; i++)
+			{
+				if (counts[i] > 0)
+				{
+					string thisWord = words[i].Substring(0,words[i].Length-1);
+					writeFile.WriteLine(thisWord + " " + counts[i]);
+				}
+			}
+		
+			taskCompleted = true;
+			return;
+		}
+		
+		Debug.Log("Sorting 5!");
+		// otherwise, we're NOT done with the sorting
+		// do X words per tick and then record our progress and stop
+		for (int i = 0; i < 5 && sorted < words.Length; i++)
+		{
+			int minIndex = sorted;
+			for (int j = sorted+1; j < words.Length; j++)
+			{
+				if (string.Compare(words[j], words[minIndex]) < 0)
+					minIndex = j;
+			}
+			
+			if (minIndex != sorted)
+			{
+				string tempword = words[minIndex];
+				words[minIndex] = words[sorted];
+				words[sorted] = tempword;
+			}
+
+			sorted += 1;
+		}
+
+	}*/
 	
 	
 	
@@ -229,7 +320,7 @@ public class Worker : MonoBehaviour
 		{
 			float percentComplete = taskTimer/simulatedTaskTime;
 			int percentage = (int)(percentComplete * 100f);
-			//progressText.GetComponent<TextMesh>().text = percentage + "%";	// At the moment, since I'm using the exact same code to count task simulated task completion and request repeat, this times both .. which is NOT what I want
+			progressText.GetComponent<TextMesh>().text = percentage + "%";	// At the moment, since I'm using the exact same code to count task simulated task completion and request repeat, this times both .. which is NOT what I want
 		}
 		
 		var tempFiles = Directory.EnumerateFiles(node.directory, "*.txt");

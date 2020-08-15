@@ -56,7 +56,7 @@ public class Master : MonoBehaviour
 	public void receiveMessage(int fromID, string messageType, string payload)
 	{	// This method is called remotely whenever a message arrives from another node
 		// So, what is the message?
-	
+		
 		// OPTION 1: MESSAGE IS A LEADER HEARTBEAT
 		if (messageType.StartsWith("HEARTBEAT"))
 		{	

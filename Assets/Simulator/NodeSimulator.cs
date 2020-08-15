@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 public class NodeSimulator : MonoBehaviour
@@ -99,13 +100,6 @@ public class NodeSimulator : MonoBehaviour
 		}
 	}
 	
-	public void receiveMessage(int fromNumber, string label, string payload)
-	{	// We don't know whether this node is a master or a worker, so try to pass the message along both ways
-		if (crashed)
-			return;
-		doReceive(fromNumber, label, payload);
-	}
-	
 	public void receiveMessage(int fromNumber, string label, string payload, string[] files)
 	{	// If the message has a set of files attached, copy them into our directory before interpreting the message (overload method)
 		if (crashed)
@@ -114,18 +108,31 @@ public class NodeSimulator : MonoBehaviour
 			copyFile(files[i]);
 		receiveMessage(fromNumber, label, payload);
 	}
+
+	delegate string AsyncMethodCaller(int callDuration);
+	public void receiveMessage(int fromNumber, string label, string payload)
+	{	// We don't know whether this node is a master or a worker, so try to pass the message along both ways
+		if (crashed)
+			return;
+		
+		doReceive(fromNumber, label, payload);
+		//Task<string> tempTask = doReceive(fromNumber, label, payload);
+		//await Task<int>.run(doReceive(fromNumber, label, payload));
+		//tempTask.WaitAndUnwrapException();
+	}
 	
-	async Task<int> doReceive(int fromNumber, string label, string payload)
+	async void doReceive(int fromNumber, string label, string payload)
 	{	// This ought to be an asynchronous call to avoid "hitching", but I don't know what I'm doing so it doesn't
 		try
 		{
 			GetComponent<Master>().receiveMessage(fromNumber, label, payload);
+			//await Task.Run(() => GetComponent<Master>().receiveMessage(fromNumber, label, payload));
 		} catch { }
 		try
 		{
 			GetComponent<Worker>().receiveMessage(fromNumber, label, payload);
+			//await Task.Run(() => GetComponent<Worker>().receiveMessage(fromNumber, label, payload));
 		} catch { }
-		return 1;
 	}
 	
 	public void setup(int newID, int newMC, int newWC, int newMpC, int newRdC, GameObject managerInput)
